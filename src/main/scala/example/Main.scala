@@ -11,8 +11,10 @@ object Hello {
       outputDir <- validateDirExists(arguments.outputDir)
       files <- listFilesAt(inputDir)
       fileNames = files.map(_.getName)
+      // TODO: calculate new and old filenames here in logic (and intermediate dirs)
       filenamesWithDirs <- elTraverse(fileNames)(getFilenameWithDirectory)
       groupedFilenamesWithDirs = groupByDate(filenamesWithDirs)
+      // TODO: unnest this? Or better to fail fast on first copy?
       _ <- elTraverse(groupedFilenamesWithDirs) { case (dirname, filenames) =>
         for {
           _ <- createDirectory(outputDir, dirname)
@@ -61,6 +63,7 @@ object Hello {
   def getFilenameWithDirectory(filename: String): Either[String, (String, String)] = {
     filename.split('_').toList match {
       case _ :: dateTimeStr :: _ =>
+        // TODO: validate dateTimeStr
         Right((dateTimeStr, filename))
       case _ =>
         Left(s"Invalid filename $filename")
@@ -68,6 +71,7 @@ object Hello {
   }
 
   def createDirectory(root: String, dirname: String): Either[String, Unit] = {
+    // TODO: create dir structure of yyyy/mm/dd/*
     if (!root.endsWith(File.separator)) {
       Left(s"The root must be a directory and end with ${File.separator}")
     } else {
@@ -79,8 +83,10 @@ object Hello {
         Right(())
       } else {
         try {
+          // TODO: debug flag argument for this info
           println(s"+ create dir $dirname")
           Right(())
+          // TODO: dry run argument?
 //          if (newDir.mkdir()) {
 //            Right(())
 //          } else {
@@ -110,8 +116,10 @@ object Hello {
       } else if (newFile.exists()) {
         Left(s"File $newFilePath already exists") // TODO: do we want to silently ignore this?
       } else {
+        // TODO: debug flag argument for this info
         println(s"> move $filename \t $dirname${File.separator}$filename")
         Right(())
+        // TODO: dry run argument?
 //        if (currentFile.renameTo(newFile)) {
 //          Right(())
 //        } else {
