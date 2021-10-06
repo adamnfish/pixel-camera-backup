@@ -4,34 +4,39 @@ import java.io.File
 
 
 object Hello {
+  val separator = File.separator
+
   def main(args: Array[String]): Unit = {
     val result = for {
       arguments <- parseArgs(args)
       inputDir <- validateDirExists(arguments.inputDir)
       outputDir <- validateDirExists(arguments.outputDir)
       files <- listFilesAt(inputDir)
-      fileNames = files.map(_.getName)
-      // TODO: calculate new and old filenames here in logic (and intermediate dirs)
-      filenamesWithDirs <- elTraverse(fileNames)(getFilenameWithDirectory)
-      groupedFilenamesWithDirs = groupByDate(filenamesWithDirs)
+      names = files.map(_.getName)
+      filenames <- elTraverse(names)(getFilenameWithDirectory)
+      groupedFilenames = groupByDate(filenames)
       // TODO: unnest this? Or better to fail fast on first copy?
-      _ <- elTraverse(groupedFilenamesWithDirs) { case (dirname, filenames) =>
+      _ <- elTraverse(groupedFilenames) { case (dirs, filenames) =>
         for {
-          _ <- createDirectory(outputDir, dirname)
-          _ <- elTraverse(filenames)(filename => moveFile(inputDir, outputDir)((dirname, filename)))
+          _ <- createDirectories(arguments.dryRun, outputDir, dirs)
+          _ <- elTraverse(filenames)(filename => moveFile(arguments.dryRun, inputDir, outputDir, dirs, filename))
         } yield ()
       }
-    } yield filenamesWithDirs
-    println(result)
-  }
-
-  def parseArgs(args: Array[String]): Either[String, Arguments] = {
-    args.toList match {
-      case input :: output :: _ =>
-        Right(Arguments(input, output))
-      case _ =>
-        Left("first arg is input dir, second arg is output dir")
-    }
+    } yield (arguments.dryRun, filenames.map(fn => s"${fn.filename} -> ${fn.dirs}"))
+    result.fold(
+      { err =>
+        println("failed to copy files:")
+        println(err)
+      },
+      { case (dryRun, moves) =>
+//        println(moves.mkString("\n"))
+        if (dryRun) {
+          println(s"Would have processed ${moves.length} files, but this was a dry run")
+        } else {
+          println(s"Processed ${moves.length} files")
+        }
+      }
+    )
   }
 
   def validateDirExists(path: String): Either[String, String] = {
@@ -45,8 +50,8 @@ object Hello {
     }
   }
 
-  def groupByDate(filenamesWithDirs: List[(String, String)]): List[(String, List[String])] = {
-    filenamesWithDirs.groupMap(_._1)(_._2).toList
+  def groupByDate(filenames: List[Filenames]): List[(String, List[String])] = {
+    filenames.groupMap(_.dirs)(_.filename).toList
   }
 
   def listFilesAt(dirname: String): Either[String, List[File]] = {
@@ -60,38 +65,49 @@ object Hello {
     }
   }
 
-  def getFilenameWithDirectory(filename: String): Either[String, (String, String)] = {
+  // optimistically allow this to run for 80 yrs
+  private val DateTimeStr = raw"(2[01]\d\d)([01]\d)([0123]\d)".r
+
+  def getFilenameWithDirectory(filename: String): Either[String, Filenames] = {
     filename.split('_').toList match {
       case _ :: dateTimeStr :: _ =>
-        // TODO: validate dateTimeStr
-        Right((dateTimeStr, filename))
+        dateTimeStr match {
+          case DateTimeStr(year, month, day) =>
+            Right {
+              Filenames(
+                s"$year$separator$month$separator$day",
+                filename,
+              )
+            }
+          case _ =>
+            Left(s"$filename didn't appear to include a valid date fragment e.g. 20210424 in `PXL_20210424_123063941.jpg`")
+        }
       case _ =>
         Left(s"Invalid filename $filename")
     }
   }
 
-  def createDirectory(root: String, dirname: String): Either[String, Unit] = {
-    // TODO: create dir structure of yyyy/mm/dd/*
-    if (!root.endsWith(File.separator)) {
-      Left(s"The root must be a directory and end with ${File.separator}")
+  def createDirectories(dryRun: Boolean, root: String, dirs: String): Either[String, Unit] = {
+    if (root.endsWith(separator)) {
+      Left(s"The root must be a directory and must not end with $separator")
     } else {
-      val newDirPath = s"$root$dirname"
+      val newDirPath = s"$root$separator$dirs"
       val newDir = new File(newDirPath)
       if (newDir.exists() && !newDir.isDirectory) {
-        Left(s"$dirname already exists and is not a directory")
+        Left(s"$newDirPath already exists and is not a directory")
       } else if (newDir.exists() && newDir.isDirectory) {
+        Right(())
+      } else if (dryRun) {
+        // TODO: debug flag argument for this info?
+        println(s"+ $newDirPath")
         Right(())
       } else {
         try {
-          // TODO: debug flag argument for this info
-          println(s"+ create dir $dirname")
-          Right(())
-          // TODO: dry run argument?
-//          if (newDir.mkdir()) {
-//            Right(())
-//          } else {
-//            Left(s"$dirname was not created")
-//          }
+          if (newDir.mkdirs()) {
+            Right(())
+          } else {
+            Left(s"$newDirPath was not created")
+          }
         } catch {
           case e: SecurityException =>
             Left(s"Did not have permission to write directory $newDirPath (${e.getMessage})")
@@ -100,36 +116,55 @@ object Hello {
     }
   }
 
-  def moveFile(oldroot: String, newRoot: String)(filenameWithDirectory: (String, String)): Either[String, Unit] = {
-    if (!oldroot.endsWith(File.separator)) {
-      Left(s"The old root (input) must be a directory and end with ${File.separator}")
-    } else if (!newRoot.endsWith(File.separator)) {
-      Left(s"The new root (output) must be a directory and end with ${File.separator}")
+  def moveFile(dryRun: Boolean, oldroot: String, newRoot: String, dirs: String, filename: String): Either[String, Unit] = {
+    if (oldroot.endsWith(separator)) {
+      Left(s"The old root (input) must be a directory and must not end with $separator")
+    } else if (newRoot.endsWith(separator)) {
+      Left(s"The new root (output) must be a directory and must not end with $separator")
     } else {
-      val (dirname, filename) = filenameWithDirectory
-      val currentFilePath = s"$oldroot$filename"
-      val newFilePath = s"$newRoot$dirname${File.separator}$filename"
+      val currentFilePath = s"$oldroot$separator$filename"
+      val newFilePath = s"$newRoot$separator$dirs$separator$filename"
       val currentFile = new File(currentFilePath)
       val newFile = new File(newFilePath)
       if (!currentFile.exists()) {
         Left(s"File $currentFilePath does not exist")
       } else if (newFile.exists()) {
-        Left(s"File $newFilePath already exists") // TODO: do we want to silently ignore this?
-      } else {
-        // TODO: debug flag argument for this info
-        println(s"> move $filename \t $dirname${File.separator}$filename")
+        val newLength = newFile.length()
+        if (newLength == currentFile.length()) {
+          println(s"File already exists (skipping): $newFilePath")
+          Right(())
+        } else {
+          Left(s"File $newFilePath already exists and appears to have different contents to $currentFilePath") // TODO: do we want to silently ignore this?
+        }
+      } else if (dryRun) {
+        // TODO: debug flag argument for this info?
+        println(s"> $filename \t $dirs$separator$filename")
         Right(())
-        // TODO: dry run argument?
-//        if (currentFile.renameTo(newFile)) {
-//          Right(())
-//        } else {
-//          Left(s"$currentFilePath $newFilePath was not moved")
-//        }
+      } else {
+        try {
+          if (currentFile.renameTo(newFile)) {
+            Right(())
+          } else {
+            Left(s"$currentFilePath $newFilePath was not moved")
+          }
+        } catch {
+          case e: SecurityException =>
+            Left(s"Did not have permission to move file to $newFilePath (${e.getMessage})")
+        }
       }
     }
   }
 
-  // decided to use the filename date instead, for simplicity
+  def parseArgs(args: Array[String]): Either[String, Arguments] = {
+    args.toList match {
+      case input :: output :: "--commit" :: _ =>
+        Right(Arguments(input, output, false))
+      case input :: output :: _ =>
+        Right(Arguments(input, output, true))
+      case _ =>
+        Left("1st arg is input dir, 2nd arg is output dir. To run for real, add --commit to the end")
+    }
+  }
 
   def elTraverse[A, B, L](la: List[A])(f: A => Either[L, B]): Either[L, List[B]] = {
     la.foldRight[Either[L, List[B]]](Right(Nil)) { case (a, accE) =>
@@ -140,8 +175,3 @@ object Hello {
     }
   }
 }
-
-case class Arguments(
-  inputDir: String,
-  outputDir: String,
-)
