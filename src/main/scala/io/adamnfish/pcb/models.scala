@@ -1,5 +1,4 @@
-package example
-
+package io.adamnfish.pcb
 
 case class Arguments(
   inputDir: String,

@@ -1,8 +1,55 @@
-Photonamez
-==========
+Pixel camera backup
+===================
 
-Rename photos from a Pixel phone to make it easier to sync them to
-cloud storage.
+Reorganise photos from a Pixel phone to make it easier to sync them
+to cloud storage.
+
+Before:
+```
+photos
+├── IMG_20200911_135149.jpg
+├── IMG_20200911_207135.jpg
+├── IMG_20200920_135555
+│   ├── 00000PORTRAIT_00000_BURST20200920135555741.jpg
+│   └── 00100trPORTRAIT_00100_BURST20200920135555741_COVER.jpg
+├── PXL_20210921_185038494.PORTRAIT.jpg
+├── PXL_20210925_132726144.LS.mp4
+├── PXL_20211001_132410554.jpg
+└── VID_20200813_191831_LS.mp4
+```
+
+After:
+```
+photos/
+├── 2020
+│   ├── 08
+│   │   └── 13
+│   │       └── VID_20200813_191831_LS.mp4
+│   └── 09
+│       ├── 11
+│       │   ├── IMG_20200911_135149.jpg
+│       │   └── IMG_20200911_207135.jpg
+│       └── 20
+│           └── IMG_20200920_135555
+│               ├── 00000PORTRAIT_00000_BURST20200920135555741.jpg
+│               └── 00100trPORTRAIT_00100_BURST20200920135555741_COVER.jpg
+└── 2021
+    ├── 09
+    │   ├── 21
+    │   │   └── PXL_20210921_185038494.PORTRAIT.jpg
+    │   └── 25
+    │       └── PXL_20210925_132726144.LS.mp4
+    └── 10
+        └── 01
+            └── PXL_20211001_132410554.jpg
+
+```
+
+The photos are sorted into subdirectories by year, month and day.
+
+It is challenging to manage a single directory containing thousands
+of photos, especially using the Web UIs offered by popular Cloud Storage
+solutions. `pixel-camera-backup` is here to help.
 
 ## Usage
 

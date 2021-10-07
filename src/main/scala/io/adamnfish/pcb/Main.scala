@@ -1,4 +1,4 @@
-package example
+package io.adamnfish.pcb
 
 import java.io.File
 

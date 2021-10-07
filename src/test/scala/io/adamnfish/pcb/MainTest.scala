@@ -1,6 +1,6 @@
-package example
+package io.adamnfish.pcb
 
-import example.Hello.{getFilenameWithDirectory, groupByDate}
+import io.adamnfish.pcb.Hello.{getFilenameWithDirectory, groupByDate}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
