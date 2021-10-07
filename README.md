@@ -10,7 +10,8 @@ Get your photos off the phone. You can use `adb` to do this using the CLI.
 
     ./adb pull /sdcard/DCIM/Camera/ <photo-dir>
 
-Run this program to move the photos into a more convenient directory structure.
+Run this program to move the photos into a more convenient directory
+structure.
 
     $ sbt run <photo-dir> <output-dir>
 
@@ -36,5 +37,8 @@ input to this script. The resulting tree of files will be written to
 
 You can then use your cloud provider of choice's tool for synchronising
 the contents of this directory to the cloud.
+
+e.g. to backup your photos into Amazon S3, you might use the following
+command.
 
     aws s3 sync ~/Pictures/phone-backup/sync s3://my-storage/phone/
