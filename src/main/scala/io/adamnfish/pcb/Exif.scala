@@ -9,6 +9,14 @@ import java.io.File
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
+
+/**
+ * Not currently used, but this would be useful for more advanced photo
+ * datetime logic.
+ *
+ * e.g. using 4am as a the date boundary rather than midnight, to leave
+ * nighttime activities together.
+ */
 object Exif {
   val tzOffsetTagInfo = new TagInfoAscii("OffsetTimeOriginal", 0x9011, 8, TiffDirectoryType.EXIF_DIRECTORY_EXIF_IFD)
 

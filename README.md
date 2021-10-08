@@ -60,7 +60,7 @@ Get your photos off the phone. You can use `adb` to do this using the CLI.
 Run this program to move the photos into a more convenient directory
 structure.
 
-    $ sbt run <photo-dir> <output-dir>
+    sbt run <photo-dir> <output-dir>
 
 `<photo-dir>` is the place where all your photos are stored.
 
@@ -88,4 +88,4 @@ the contents of this directory to the cloud.
 e.g. to backup your photos into Amazon S3, you might use the following
 command.
 
-    aws s3 sync ~/Pictures/phone-backup/sync s3://my-storage/phone/
+    aws s3 sync ~/Pictures/phone-backup/sync/ s3://my-storage/phone/
