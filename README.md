@@ -60,11 +60,18 @@ Get your photos off the phone. You can use `adb` to do this using the CLI.
 Run this program to move the photos into a more convenient directory
 structure.
 
-    sbt run <photo-dir> <output-dir>
+    sbt run <photo-dir> <output-dir> [--commit]
 
 `<photo-dir>` is the place where all your photos are stored.
 
 `<output-dir>` is where the new directory structure should be written.
+
+By default, the program will run do a dry-run. It performs all its
+checks without actually copying any files. Once you're happy with the
+output and have resolved any conflicts, you can tell the program to
+actually copy the files into the new structure.
+
+`--commit` once you've cleared up any conflicts, add this flag to run for real
 
 ### Example
 
