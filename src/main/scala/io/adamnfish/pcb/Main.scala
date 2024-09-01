@@ -3,7 +3,7 @@ package io.adamnfish.pcb
 import java.io.File
 
 
-object Hello {
+object Main {
   val separator = File.separator
 
   def main(args: Array[String]): Unit = {
