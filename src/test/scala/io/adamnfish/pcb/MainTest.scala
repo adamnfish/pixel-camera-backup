@@ -4,22 +4,23 @@ import io.adamnfish.pcb.Main.{getFilenameWithDirectory, groupByDate}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-
 class MainTest extends AnyFreeSpec with Matchers {
   "groupByDate" - {
     "is correct for this example" in {
-      groupByDate(List(
-        Filenames("2020/09/20", "IMG_20200920_121437.jpg"),
-        Filenames("2020/09/11", "PXL_20200911_211218498.jpg"),
-        Filenames("2020/09/20", "IMG_20200920_128665.jpg"),
-        Filenames("2021/06/27", "PXL_20210627_134736911.jpg"),
-      )) shouldEqual List(
+      groupByDate(
+        List(
+          Filenames("2020/09/20", "IMG_20200920_121437.jpg"),
+          Filenames("2020/09/11", "PXL_20200911_211218498.jpg"),
+          Filenames("2020/09/20", "IMG_20200920_128665.jpg"),
+          Filenames("2021/06/27", "PXL_20210627_134736911.jpg")
+        )
+      ) shouldEqual List(
         "2020/09/20" -> List(
           "IMG_20200920_121437.jpg",
-          "IMG_20200920_128665.jpg",
+          "IMG_20200920_128665.jpg"
         ),
         "2020/09/11" -> List("PXL_20200911_211218498.jpg"),
-        "2021/06/27" -> List("PXL_20210627_134736911.jpg"),
+        "2021/06/27" -> List("PXL_20210627_134736911.jpg")
       )
     }
   }
@@ -29,7 +30,7 @@ class MainTest extends AnyFreeSpec with Matchers {
       getFilenameWithDirectory("IMG_20200920_121437.jpg") shouldEqual Right(
         Filenames(
           "2020/09/20",
-          "IMG_20200920_121437.jpg",
+          "IMG_20200920_121437.jpg"
         )
       )
     }
@@ -38,16 +39,18 @@ class MainTest extends AnyFreeSpec with Matchers {
       getFilenameWithDirectory("PXL_20200911_211218498.jpg") shouldEqual Right(
         Filenames(
           "2020/09/11",
-          "PXL_20200911_211218498.jpg",
+          "PXL_20200911_211218498.jpg"
         )
       )
     }
 
     "works for a PXL portrait example" in {
-      getFilenameWithDirectory("PXL_20210424_183416412.PORTRAIT.jpg") shouldEqual Right(
+      getFilenameWithDirectory(
+        "PXL_20210424_183416412.PORTRAIT.jpg"
+      ) shouldEqual Right(
         Filenames(
           "2021/04/24",
-          "PXL_20210424_183416412.PORTRAIT.jpg",
+          "PXL_20210424_183416412.PORTRAIT.jpg"
         )
       )
     }
@@ -56,7 +59,7 @@ class MainTest extends AnyFreeSpec with Matchers {
       getFilenameWithDirectory("IMG_20200921_134908") shouldEqual Right(
         Filenames(
           "2020/09/21",
-          "IMG_20200921_134908",
+          "IMG_20200921_134908"
         )
       )
     }
@@ -65,7 +68,7 @@ class MainTest extends AnyFreeSpec with Matchers {
       getFilenameWithDirectory("VID_20200711_214648_LS.mp4") shouldEqual Right(
         Filenames(
           "2020/07/11",
-          "VID_20200711_214648_LS.mp4",
+          "VID_20200711_214648_LS.mp4"
         )
       )
     }

@@ -1,6 +1,6 @@
-ThisBuild / scalaVersion     := "2.13.14"
-ThisBuild / version          := "0.1.0-SNAPSHOT"
-ThisBuild / organization     := "io.adamnfish"
+ThisBuild / scalaVersion := "2.13.16"
+ThisBuild / version := "0.1.0-SNAPSHOT"
+ThisBuild / organization := "io.adamnfish"
 ThisBuild / organizationName := "adamnfish"
 
 lazy val root = (project in file("."))
@@ -8,6 +8,6 @@ lazy val root = (project in file("."))
     name := "pixel-camera-backup",
     libraryDependencies ++= Seq(
       "org.apache.commons" % "commons-imaging" % "1.0.0-alpha5",
-      "org.scalatest" %% "scalatest" % "3.2.19" % Test,
+      "org.scalatest" %% "scalatest" % "3.2.19" % Test
     )
   )

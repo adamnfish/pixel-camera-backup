@@ -16,12 +16,13 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up JDK 17
+    - name: Setup JDK
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: 'sbt'
+        distribution: corretto
+        java-version: 21
+        cache: sbt
+    - uses: sbt/setup-sbt@26ab4b0fa1c47fa62fc1f6e51823a658fb6c760c # v1.1.7
 
     - name: Run tests
       run: sbt test

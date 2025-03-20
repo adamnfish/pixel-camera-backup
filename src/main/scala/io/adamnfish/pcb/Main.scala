@@ -2,7 +2,6 @@ package io.adamnfish.pcb
 
 import java.io.File
 
-
 object Main {
   val separator = File.separator
 
@@ -19,10 +18,15 @@ object Main {
       _ <- elTraverse(groupedFilenames) { case (dirs, filenames) =>
         for {
           _ <- createDirectories(arguments.dryRun, outputDir, dirs)
-          _ <- elTraverse(filenames)(filename => moveFile(arguments.dryRun, inputDir, outputDir, dirs, filename))
+          _ <- elTraverse(filenames)(filename =>
+            moveFile(arguments.dryRun, inputDir, outputDir, dirs, filename)
+          )
         } yield ()
       }
-    } yield (arguments.dryRun, filenames.map(fn => s"${fn.filename} -> ${fn.dirs}"))
+    } yield (
+      arguments.dryRun,
+      filenames.map(fn => s"${fn.filename} -> ${fn.dirs}")
+    )
     result.fold(
       { err =>
         println("failed to copy files:")
@@ -31,7 +35,9 @@ object Main {
       { case (dryRun, moves) =>
 //        println(moves.mkString("\n"))
         if (dryRun) {
-          println(s"Would have processed ${moves.length} files, but this was a dry run")
+          println(
+            s"Would have processed ${moves.length} files, but this was a dry run"
+          )
         } else {
           println(s"Processed ${moves.length} files")
         }
@@ -76,18 +82,24 @@ object Main {
             Right {
               Filenames(
                 s"$year$separator$month$separator$day",
-                filename,
+                filename
               )
             }
           case _ =>
-            Left(s"$filename didn't appear to include a valid date fragment e.g. 20210424 in `PXL_20210424_123063941.jpg`")
+            Left(
+              s"$filename didn't appear to include a valid date fragment e.g. 20210424 in `PXL_20210424_123063941.jpg`"
+            )
         }
       case _ =>
         Left(s"Invalid filename $filename")
     }
   }
 
-  def createDirectories(dryRun: Boolean, root: String, dirs: String): Either[String, Unit] = {
+  def createDirectories(
+      dryRun: Boolean,
+      root: String,
+      dirs: String
+  ): Either[String, Unit] = {
     if (root.endsWith(separator)) {
       Left(s"The root must be a directory and must not end with $separator")
     } else {
@@ -110,17 +122,29 @@ object Main {
           }
         } catch {
           case e: SecurityException =>
-            Left(s"Did not have permission to write directory $newDirPath (${e.getMessage})")
+            Left(
+              s"Did not have permission to write directory $newDirPath (${e.getMessage})"
+            )
         }
       }
     }
   }
 
-  def moveFile(dryRun: Boolean, oldroot: String, newRoot: String, dirs: String, filename: String): Either[String, Unit] = {
+  def moveFile(
+      dryRun: Boolean,
+      oldroot: String,
+      newRoot: String,
+      dirs: String,
+      filename: String
+  ): Either[String, Unit] = {
     if (oldroot.endsWith(separator)) {
-      Left(s"The old root (input) must be a directory and must not end with $separator")
+      Left(
+        s"The old root (input) must be a directory and must not end with $separator"
+      )
     } else if (newRoot.endsWith(separator)) {
-      Left(s"The new root (output) must be a directory and must not end with $separator")
+      Left(
+        s"The new root (output) must be a directory and must not end with $separator"
+      )
     } else {
       val currentFilePath = s"$oldroot$separator$filename"
       val newFilePath = s"$newRoot$separator$dirs$separator$filename"
@@ -134,7 +158,9 @@ object Main {
           println(s"File already exists (skipping): $newFilePath")
           Right(())
         } else {
-          Left(s"File $newFilePath already exists and appears to have different contents to $currentFilePath") // TODO: do we want to silently ignore this?
+          Left(
+            s"File $newFilePath already exists and appears to have different contents to $currentFilePath"
+          ) // TODO: do we want to silently ignore this?
         }
       } else if (dryRun) {
         // TODO: debug flag argument for this info?
@@ -149,7 +175,9 @@ object Main {
           }
         } catch {
           case e: SecurityException =>
-            Left(s"Did not have permission to move file to $newFilePath (${e.getMessage})")
+            Left(
+              s"Did not have permission to move file to $newFilePath (${e.getMessage})"
+            )
         }
       }
     }
@@ -162,11 +190,15 @@ object Main {
       case input :: output :: _ =>
         Right(Arguments(input, output, true))
       case _ =>
-        Left("1st arg is input dir, 2nd arg is output dir. To run for real, add --commit to the end")
+        Left(
+          "1st arg is input dir, 2nd arg is output dir. To run for real, add --commit to the end"
+        )
     }
   }
 
-  def elTraverse[A, B, L](la: List[A])(f: A => Either[L, B]): Either[L, List[B]] = {
+  def elTraverse[A, B, L](
+      la: List[A]
+  )(f: A => Either[L, B]): Either[L, List[B]] = {
     la.foldRight[Either[L, List[B]]](Right(Nil)) { case (a, accE) =>
       for {
         b <- f(a)
