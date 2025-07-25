@@ -7,7 +7,7 @@ lazy val root = (project in file("."))
   .settings(
     name := "pixel-camera-backup",
     libraryDependencies ++= Seq(
-      "org.apache.commons" % "commons-imaging" % "1.0.0-alpha5",
+      "org.apache.commons" % "commons-imaging" % "1.0.0-alpha6",
       "org.scalatest" %% "scalatest" % "3.2.19" % Test
     )
   )
