@@ -1,0 +1,32 @@
+name: "Copilot Setup Steps"
+
+# Automatically run the setup steps when they are changed to allow for easy validation, and
+# allow manual testing through the repository's "Actions" tab
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+
+    # Minimal permissions for these steps (copilot gets its own token when running)
+    permissions:
+      # Required to allow repository checkout
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK and Scala
+        uses: guardian/setup-scala@v1
+
+      # Primes all caches so sbt starts quickly for the agent
+      - name: Run compile task in test scope
+        run: sbt Test/compile
