@@ -1,6 +1,6 @@
 package io.adamnfish.pcb
 
-import io.adamnfish.pcb.Main.{getFilenameWithDirectory, groupByDate}
+import io.adamnfish.pcb.Main.{getFilenameWithDirectory, groupByDate, isValidFilename, listFilesAt}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -79,6 +79,29 @@ class MainTest extends AnyFreeSpec with Matchers {
 
     "fails if the date fragment is invalid" in {
       getFilenameWithDirectory("IMG_7020921_134908.jpg").isLeft shouldEqual true
+    }
+
+    "fails for pending files" in {
+      getFilenameWithDirectory(".pending-1747559140-_PXL_1582263144432191_1734954997733_1482652244439028.jpg").isLeft shouldEqual true
+    }
+  }
+
+  "isValidFilename" - {
+    "should return true for normal photo files" in {
+      isValidFilename("PXL_20210424_123456789.jpg") shouldEqual true
+      isValidFilename("IMG_20200911_135149.jpg") shouldEqual true
+      isValidFilename("VID_20200711_214648_LS.mp4") shouldEqual true
+    }
+
+    "should return false for .pending- files" in {
+      isValidFilename(".pending-1747559140-_PXL_1582263144432191_1734954997733_1482652244439028.jpg") shouldEqual false
+      isValidFilename(".pending-another-file.jpg") shouldEqual false
+      isValidFilename(".pending-test") shouldEqual false
+    }
+
+    "should return true for files with dots that don't start with .pending-" in {
+      isValidFilename(".hidden-file.jpg") shouldEqual true
+      isValidFilename("file.with.dots.jpg") shouldEqual true
     }
   }
 }

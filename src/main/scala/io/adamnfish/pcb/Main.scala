@@ -11,7 +11,7 @@ object Main {
       inputDir <- validateDirExists(arguments.inputDir)
       outputDir <- validateDirExists(arguments.outputDir)
       files <- listFilesAt(inputDir)
-      names = files.map(_.getName)
+      names = files.map(_.getName).filter(isValidFilename)
       filenames <- elTraverse(names)(getFilenameWithDirectory)
       groupedFilenames = groupByDate(filenames)
       // TODO: unnest this? Or better to fail fast on first copy?
@@ -43,6 +43,10 @@ object Main {
         }
       }
     )
+  }
+
+  def isValidFilename(filename: String): Boolean = {
+    !filename.startsWith(".pending-")
   }
 
   def validateDirExists(path: String): Either[String, String] = {
