@@ -1,6 +1,10 @@
 .idea/
 .bsp/
 
+# This is used to by the AI agent SDLC to see the result of executing sbt tasks
+sbt-output.log
+
+
 # Created by https://www.toptal.com/developers/gitignore/api/scala,sbt,intellij,emacs
 # Edit at https://www.toptal.com/developers/gitignore?templates=scala,sbt,intellij,emacs
 
