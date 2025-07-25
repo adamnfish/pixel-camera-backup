@@ -11,7 +11,7 @@ object Main {
       inputDir <- validateDirExists(arguments.inputDir)
       outputDir <- validateDirExists(arguments.outputDir)
       files <- listFilesAt(inputDir)
-      names = files.map(_.getName)
+      names = files.map(_.getName).filterNot(_.startsWith(".pending-"))
       filenames <- elTraverse(names)(getFilenameWithDirectory)
       groupedFilenames = groupByDate(filenames)
       // TODO: unnest this? Or better to fail fast on first copy?

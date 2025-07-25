@@ -1,8 +1,10 @@
 package io.adamnfish.pcb
 
-import io.adamnfish.pcb.Main.{getFilenameWithDirectory, groupByDate}
+import io.adamnfish.pcb.Main.{getFilenameWithDirectory, groupByDate, listFilesAt}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import java.io.File
+import java.nio.file.Files
 
 class MainTest extends AnyFreeSpec with Matchers {
   "groupByDate" - {
@@ -79,6 +81,41 @@ class MainTest extends AnyFreeSpec with Matchers {
 
     "fails if the date fragment is invalid" in {
       getFilenameWithDirectory("IMG_7020921_134908.jpg").isLeft shouldEqual true
+    }
+
+    "fails for pending files" in {
+      getFilenameWithDirectory(".pending-1747559140-_PXL_1582263144432191_1734954997733_1482652244439028.jpg").isLeft shouldEqual true
+    }
+  }
+
+  "listFilesAt with pending files filtering" - {
+    "should exclude .pending- files from processing" in {
+      // Create a temporary directory with test files
+      val tempDir = Files.createTempDirectory("test-pending").toFile
+      try {
+        // Create test files
+        new File(tempDir, "PXL_20210424_123456789.jpg").createNewFile()
+        new File(tempDir, ".pending-1747559140-_PXL_1582263144432191_1734954997733_1482652244439028.jpg").createNewFile()
+        new File(tempDir, "IMG_20200911_135149.jpg").createNewFile()
+        new File(tempDir, ".pending-another-file.jpg").createNewFile()
+
+        // List files and apply the same filtering as in main
+        listFilesAt(tempDir.getAbsolutePath) match {
+          case Right(files) =>
+            val names = files.map(_.getName).filterNot(_.startsWith(".pending-"))
+            names should contain("PXL_20210424_123456789.jpg")
+            names should contain("IMG_20200911_135149.jpg")
+            names should not contain(".pending-1747559140-_PXL_1582263144432191_1734954997733_1482652244439028.jpg")
+            names should not contain(".pending-another-file.jpg")
+            names.size shouldEqual 2
+          case Left(error) =>
+            fail(s"Should have listed files successfully: $error")
+        }
+      } finally {
+        // Clean up
+        tempDir.listFiles().foreach(_.delete())
+        tempDir.delete()
+      }
     }
   }
 }
