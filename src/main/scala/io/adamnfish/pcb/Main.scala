@@ -6,6 +6,11 @@ object Main {
   val separator = File.separator
 
   def main(args: Array[String]): Unit = {
+    given Output = ConsoleOutput
+    program(args.toList)
+  }
+
+  def program(args: List[String])(using output: Output): Unit = {
     val result = for {
       arguments <- parseArgs(args)
       inputDir <- validateDirExists(arguments.inputDir)
@@ -29,17 +34,17 @@ object Main {
     )
     result.fold(
       { err =>
-        println("failed to copy files:")
-        println(err)
+        output.stderrln("failed to copy files:")
+        output.stderrln(err)
       },
       { case (dryRun, moves) =>
-//        println(moves.mkString("\n"))
+        //        output.stdoutln(moves.mkString("\n"))
         if (dryRun) {
-          println(
+          output.stdoutln(
             s"Would have processed ${moves.length} files, but this was a dry run"
           )
         } else {
-          println(s"Processed ${moves.length} files")
+          output.stdoutln(s"Processed ${moves.length} files")
         }
       }
     )
@@ -103,7 +108,7 @@ object Main {
       dryRun: Boolean,
       root: String,
       dirs: String
-  ): Either[String, Unit] = {
+  )(using output: Output): Either[String, Unit] = {
     if (root.endsWith(separator)) {
       Left(s"The root must be a directory and must not end with $separator")
     } else {
@@ -115,7 +120,7 @@ object Main {
         Right(())
       } else if (dryRun) {
         // TODO: debug flag argument for this info?
-        println(s"+ $newDirPath")
+        output.stdoutln(s"+ $newDirPath")
         Right(())
       } else {
         try {
@@ -140,7 +145,7 @@ object Main {
       newRoot: String,
       dirs: String,
       filename: String
-  ): Either[String, Unit] = {
+  )(using output: Output): Either[String, Unit] = {
     if (oldroot.endsWith(separator)) {
       Left(
         s"The old root (input) must be a directory and must not end with $separator"
@@ -159,7 +164,7 @@ object Main {
       } else if (newFile.exists()) {
         val newLength = newFile.length()
         if (newLength == currentFile.length()) {
-          println(s"File already exists (skipping): $newFilePath")
+          output.stdoutln(s"File already exists (skipping): $newFilePath")
           Right(())
         } else {
           Left(
@@ -168,7 +173,7 @@ object Main {
         }
       } else if (dryRun) {
         // TODO: debug flag argument for this info?
-        println(s"> $filename \t $dirs$separator$filename")
+        output.stdoutln(s"> $filename \t $dirs$separator$filename")
         Right(())
       } else {
         try {
@@ -187,8 +192,8 @@ object Main {
     }
   }
 
-  def parseArgs(args: Array[String]): Either[String, Arguments] = {
-    args.toList match {
+  def parseArgs(args: List[String]): Either[String, Arguments] = {
+    args match {
       case input :: output :: "--commit" :: _ =>
         Right(Arguments(input, output, false))
       case input :: output :: _ =>
