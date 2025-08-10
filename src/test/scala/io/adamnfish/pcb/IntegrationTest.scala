@@ -134,6 +134,37 @@ class IntegrationTest extends AnyFreeSpec with Matchers {
           stderr should include("Invalid filename invalid-name.jpg")
         }
       }
+      
+      "should handle multiple file types correctly" in {
+        val testOutput = new TestOutput()
+        given Output = testOutput
+        
+        withTempDirs { (inputDir, outputDir) =>
+          createTestFile(inputDir, "PXL_20210424_123456789.jpg")
+          createTestFile(inputDir, "IMG_20200920_121437.jpg")
+          createTestFile(inputDir, "VID_20200711_214648_LS.mp4")
+          createTestFile(inputDir, "PXL_20210424_183416412.PORTRAIT.jpg")
+          createTestFile(inputDir, "IMG_20200921_134908")  // directory format
+          
+          program(List(inputDir.toString, outputDir.toString))
+          
+          val stdout = testOutput.getStdout.mkString("")
+          stdout should include("Would have processed 5 files, but this was a dry run")
+        }
+      }
+      
+      "should handle empty input directory gracefully" in {
+        val testOutput = new TestOutput()
+        given Output = testOutput
+        
+        withTempDirs { (inputDir, outputDir) =>
+          // No files in input directory
+          program(List(inputDir.toString, outputDir.toString))
+          
+          val stdout = testOutput.getStdout.mkString("")
+          stdout should include("Would have processed 0 files, but this was a dry run")
+        }
+      }
     }
     
     "commit mode" - {
@@ -209,6 +240,30 @@ class IntegrationTest extends AnyFreeSpec with Matchers {
           val stderr = testOutput.getStderr.mkString("")
           stderr should include("failed to copy files:")
           stderr should include("already exists and appears to have different contents")
+        }
+      }
+      
+      "should organize files by date in subdirectories correctly" in {
+        val testOutput = new TestOutput()
+        given Output = testOutput
+        
+        withTempDirs { (inputDir, outputDir) =>
+          // Create files from different dates
+          createTestFile(inputDir, "PXL_20210424_123456789.jpg")
+          createTestFile(inputDir, "PXL_20210424_999999999.jpg")  // same date
+          createTestFile(inputDir, "IMG_20200920_121437.jpg")     // different date
+          createTestFile(inputDir, "VID_20200711_214648_LS.mp4")  // another date
+          
+          program(List(inputDir.toString, outputDir.toString, "--commit"))
+          
+          val stdout = testOutput.getStdout.mkString("")
+          stdout should include("Processed 4 files")
+          
+          // Verify correct directory structure
+          outputDir.resolve("2021/04/24/PXL_20210424_123456789.jpg").toFile should exist
+          outputDir.resolve("2021/04/24/PXL_20210424_999999999.jpg").toFile should exist
+          outputDir.resolve("2020/09/20/IMG_20200920_121437.jpg").toFile should exist
+          outputDir.resolve("2020/07/11/VID_20200711_214648_LS.mp4").toFile should exist
         }
       }
     }
