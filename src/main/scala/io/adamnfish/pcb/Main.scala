@@ -17,53 +17,18 @@ object Main {
       outputDir <- validateDirExists(arguments.outputDir)
       files <- listFilesAt(inputDir)
       names = files.map(_.getName).filter(isValidFilename)
-    } yield (arguments, inputDir, outputDir, names)
+      (filenameErrors, validFilenames) = processFilenames(names)
+      groupedFilenames = groupByDate(validFilenames)
+      (operationErrors, successfulMoves) = processFileOperations(arguments, inputDir, outputDir, groupedFilenames)
+      allErrors = filenameErrors ++ operationErrors
+    } yield (arguments, allErrors, successfulMoves)
     
     result.fold(
       { err =>
-        output.stderrln("failed to copy files:")
-        output.stderrln(err)
+        reportInitialError(err)
       },
-      { case (arguments, inputDir, outputDir, names) =>
-        // Collect all filename parsing errors and successes
-        val (filenameErrors, validFilenames) = collectAllResults(names)(getFilenameWithDirectory)
-        val groupedFilenames = groupByDate(validFilenames)
-        
-        // Collect all file operation errors and successes
-        val (operationErrors, successfulMoves) = groupedFilenames.foldLeft((List.empty[String], List.empty[String])) {
-          case ((allErrors, allSuccesses), (dirs, filenames)) =>
-            // Try to create directory
-            val dirResult = createDirectories(arguments.dryRun, outputDir, dirs)
-            val dirErrors = dirResult.fold(List(_), _ => List.empty)
-            
-            // Try to move all files in this directory
-            val (moveErrors, moveSuccesses) = collectAllResults(filenames) { filename =>
-              moveFile(arguments.dryRun, inputDir, outputDir, dirs, filename).map(_ => s"$filename -> $dirs$separator$filename")
-            }
-            
-            (allErrors ++ dirErrors ++ moveErrors, allSuccesses ++ moveSuccesses)
-        }
-        
-        val allErrors = filenameErrors ++ operationErrors
-        
-        if (allErrors.nonEmpty) {
-          output.stderrln("Problems found:")
-          allErrors.foreach(output.stderrln)
-          if (arguments.dryRun) {
-            output.stderrln("")
-            output.stderrln("The above problems would need to be resolved before running with --commit")
-          }
-        }
-        
-        if (successfulMoves.nonEmpty || allErrors.isEmpty) {
-          if (arguments.dryRun) {
-            output.stdoutln(
-              s"Would have processed ${successfulMoves.length} files, but this was a dry run"
-            )
-          } else {
-            output.stdoutln(s"Processed ${successfulMoves.length} files")
-          }
-        }
+      { case (arguments, allErrors, successfulMoves) =>
+        reportResults(arguments, allErrors, successfulMoves)
       }
     )
   }
@@ -238,10 +203,66 @@ object Main {
   def collectAllResults[A, B](
       la: List[A]
   )(f: A => Either[String, B]): (List[String], List[B]) = {
-    la.foldLeft((List.empty[String], List.empty[B])) { case ((errors, successes), a) =>
+    val (errors, successes) = la.foldLeft((List.empty[String], List.empty[B])) { case ((errors, successes), a) =>
       f(a) match {
-        case Left(error) => (error :: errors, successes)
-        case Right(success) => (errors, success :: successes)
+        case Left(error) => (errors :+ error, successes)
+        case Right(success) => (errors, successes :+ success)
+      }
+    }
+    (errors, successes)
+  }
+
+  def processFilenames(names: List[String]): (List[String], List[Filenames]) = {
+    collectAllResults(names)(getFilenameWithDirectory)
+  }
+
+  def processFileOperations(
+      arguments: Arguments,
+      inputDir: String, 
+      outputDir: String,
+      groupedFilenames: List[(String, List[String])]
+  )(using output: Output): (List[String], List[String]) = {
+    groupedFilenames.foldLeft((List.empty[String], List.empty[String])) {
+      case ((allErrors, allSuccesses), (dirs, filenames)) =>
+        // Try to create directory
+        val dirResult = createDirectories(arguments.dryRun, outputDir, dirs)
+        val dirErrors = dirResult.fold(List(_), _ => List.empty)
+        
+        // Try to move all files in this directory
+        val (moveErrors, moveSuccesses) = collectAllResults(filenames) { filename =>
+          moveFile(arguments.dryRun, inputDir, outputDir, dirs, filename).map(_ => s"$filename -> $dirs$separator$filename")
+        }
+        
+        (allErrors ++ dirErrors ++ moveErrors, allSuccesses ++ moveSuccesses)
+    }
+  }
+
+  def reportInitialError(err: String)(using output: Output): Unit = {
+    output.stderrln("failed to copy files:")
+    output.stderrln(err)
+  }
+
+  def reportResults(
+      arguments: Arguments,
+      allErrors: List[String],
+      successfulMoves: List[String]
+  )(using output: Output): Unit = {
+    if (allErrors.nonEmpty) {
+      output.stderrln("Problems found:")
+      allErrors.foreach(output.stderrln)
+      if (arguments.dryRun) {
+        output.stderrln("")
+        output.stderrln("The above problems would need to be resolved before running with --commit")
+      }
+    }
+    
+    if (successfulMoves.nonEmpty || allErrors.isEmpty) {
+      if (arguments.dryRun) {
+        output.stdoutln(
+          s"Would have processed ${successfulMoves.length} files, but this was a dry run"
+        )
+      } else {
+        output.stdoutln(s"Processed ${successfulMoves.length} files")
       }
     }
   }

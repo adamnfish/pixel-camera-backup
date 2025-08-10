@@ -1,6 +1,6 @@
 package io.adamnfish.pcb
 
-import io.adamnfish.pcb.Main.{getFilenameWithDirectory, groupByDate, isValidFilename, listFilesAt}
+import io.adamnfish.pcb.Main.{getFilenameWithDirectory, groupByDate, isValidFilename, listFilesAt, processFilenames, reportResults, reportInitialError, collectAllResults}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -102,6 +102,187 @@ class MainTest extends AnyFreeSpec with Matchers {
     "should return true for files with dots that don't start with .pending-" in {
       isValidFilename(".hidden-file.jpg") shouldEqual true
       isValidFilename("file.with.dots.jpg") shouldEqual true
+    }
+  }
+
+  "collectAllResults" - {
+    "should collect all successes when all operations succeed" in {
+      val input = List("a", "b", "c")
+      val f = (s: String) => Right(s.toUpperCase)
+      
+      val (errors, successes) = collectAllResults(input)(f)
+      
+      errors shouldEqual List.empty
+      successes shouldEqual List("A", "B", "C")
+    }
+
+    "should collect all errors when all operations fail" in {
+      val input = List("1", "2", "3")
+      val f = (s: String) => Left(s"Error with $s")
+      
+      val (errors, successes) = collectAllResults(input)(f)
+      
+      errors shouldEqual List("Error with 1", "Error with 2", "Error with 3")
+      successes shouldEqual List.empty
+    }
+
+    "should collect both errors and successes when operations are mixed" in {
+      val input = List("good1", "bad", "good2", "bad2")
+      val f = (s: String) => if (s.startsWith("good")) Right(s.toUpperCase) else Left(s"Error with $s")
+      
+      val (errors, successes) = collectAllResults(input)(f)
+      
+      errors shouldEqual List("Error with bad", "Error with bad2")
+      successes shouldEqual List("GOOD1", "GOOD2")
+    }
+
+    "should handle empty input" in {
+      val input = List.empty[String]
+      val f = (s: String) => Right(s.toUpperCase)
+      
+      val (errors, successes) = collectAllResults(input)(f)
+      
+      errors shouldEqual List.empty
+      successes shouldEqual List.empty
+    }
+  }
+
+  "processFilenames" - {
+    "should process all valid filenames successfully" in {
+      val filenames = List(
+        "PXL_20210424_123456789.jpg",
+        "IMG_20200920_121437.jpg",
+        "VID_20200711_214648_LS.mp4"
+      )
+      
+      val (errors, successes) = processFilenames(filenames)
+      
+      errors shouldEqual List.empty
+      successes should have length 3
+      successes.map(_.filename) shouldEqual filenames
+    }
+
+    "should collect all filename errors" in {
+      val filenames = List(
+        "invalid-file.jpg",
+        "another-bad.mp4",
+        "PXL_20210424_123456789.jpg"  // valid one
+      )
+      
+      val (errors, successes) = processFilenames(filenames)
+      
+      errors should have length 2
+      errors should contain("Invalid filename invalid-file.jpg")
+      errors should contain("Invalid filename another-bad.mp4")
+      successes should have length 1
+      successes.head.filename shouldEqual "PXL_20210424_123456789.jpg"
+    }
+
+    "should handle empty filename list" in {
+      val (errors, successes) = processFilenames(List.empty)
+      
+      errors shouldEqual List.empty
+      successes shouldEqual List.empty
+    }
+  }
+
+  "reportInitialError" - {
+    "should output error message to stderr" in {
+      val testOutput = new TestOutput()
+      given Output = testOutput
+      
+      reportInitialError("Test error message")
+      
+      val stderr = testOutput.getStderr.mkString("")
+      stderr should include("failed to copy files:")
+      stderr should include("Test error message")
+    }
+  }
+
+  "reportResults" - {
+    "should report problems and dry run message when errors exist in dry run mode" in {
+      val testOutput = new TestOutput()
+      given Output = testOutput
+      val arguments = Arguments("/input", "/output", true)
+      val errors = List("Error 1", "Error 2")
+      val successes = List("file1", "file2")
+      
+      reportResults(arguments, errors, successes)
+      
+      val stderr = testOutput.getStderr.mkString("")
+      val stdout = testOutput.getStdout.mkString("")
+      
+      stderr should include("Problems found:")
+      stderr should include("Error 1")
+      stderr should include("Error 2")
+      stderr should include("The above problems would need to be resolved before running with --commit")
+      stdout should include("Would have processed 2 files, but this was a dry run")
+    }
+
+    "should report problems without dry run message in commit mode" in {
+      val testOutput = new TestOutput()
+      given Output = testOutput
+      val arguments = Arguments("/input", "/output", false)
+      val errors = List("Conflict error")
+      val successes = List("file1")
+      
+      reportResults(arguments, errors, successes)
+      
+      val stderr = testOutput.getStderr.mkString("")
+      val stdout = testOutput.getStdout.mkString("")
+      
+      stderr should include("Problems found:")
+      stderr should include("Conflict error")
+      stderr should not include("The above problems would need to be resolved before running with --commit")
+      stdout should include("Processed 1 files")
+    }
+
+    "should report successful operations when no errors in dry run mode" in {
+      val testOutput = new TestOutput()
+      given Output = testOutput
+      val arguments = Arguments("/input", "/output", true)
+      val errors = List.empty[String]
+      val successes = List("file1", "file2", "file3")
+      
+      reportResults(arguments, errors, successes)
+      
+      val stderr = testOutput.getStderr.mkString("")
+      val stdout = testOutput.getStdout.mkString("")
+      
+      stderr shouldEqual ""
+      stdout should include("Would have processed 3 files, but this was a dry run")
+    }
+
+    "should report successful operations when no errors in commit mode" in {
+      val testOutput = new TestOutput()
+      given Output = testOutput
+      val arguments = Arguments("/input", "/output", false)
+      val errors = List.empty[String]
+      val successes = List("file1", "file2")
+      
+      reportResults(arguments, errors, successes)
+      
+      val stderr = testOutput.getStderr.mkString("")
+      val stdout = testOutput.getStdout.mkString("")
+      
+      stderr shouldEqual ""
+      stdout should include("Processed 2 files")
+    }
+
+    "should handle empty results gracefully" in {
+      val testOutput = new TestOutput()
+      given Output = testOutput
+      val arguments = Arguments("/input", "/output", true)
+      val errors = List.empty[String]
+      val successes = List.empty[String]
+      
+      reportResults(arguments, errors, successes)
+      
+      val stderr = testOutput.getStderr.mkString("")
+      val stdout = testOutput.getStdout.mkString("")
+      
+      stderr shouldEqual ""
+      stdout should include("Would have processed 0 files, but this was a dry run")
     }
   }
 }
