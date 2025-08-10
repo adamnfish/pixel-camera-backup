@@ -17,34 +17,52 @@ object Main {
       outputDir <- validateDirExists(arguments.outputDir)
       files <- listFilesAt(inputDir)
       names = files.map(_.getName).filter(isValidFilename)
-      filenames <- elTraverse(names)(getFilenameWithDirectory)
-      groupedFilenames = groupByDate(filenames)
-      // TODO: unnest this? Or better to fail fast on first copy?
-      _ <- elTraverse(groupedFilenames) { case (dirs, filenames) =>
-        for {
-          _ <- createDirectories(arguments.dryRun, outputDir, dirs)
-          _ <- elTraverse(filenames)(filename =>
-            moveFile(arguments.dryRun, inputDir, outputDir, dirs, filename)
-          )
-        } yield ()
-      }
-    } yield (
-      arguments.dryRun,
-      filenames.map(fn => s"${fn.filename} -> ${fn.dirs}")
-    )
+    } yield (arguments, inputDir, outputDir, names)
+    
     result.fold(
       { err =>
         output.stderrln("failed to copy files:")
         output.stderrln(err)
       },
-      { case (dryRun, moves) =>
-        //        output.stdoutln(moves.mkString("\n"))
-        if (dryRun) {
-          output.stdoutln(
-            s"Would have processed ${moves.length} files, but this was a dry run"
-          )
-        } else {
-          output.stdoutln(s"Processed ${moves.length} files")
+      { case (arguments, inputDir, outputDir, names) =>
+        // Collect all filename parsing errors and successes
+        val (filenameErrors, validFilenames) = collectAllResults(names)(getFilenameWithDirectory)
+        val groupedFilenames = groupByDate(validFilenames)
+        
+        // Collect all file operation errors and successes
+        val (operationErrors, successfulMoves) = groupedFilenames.foldLeft((List.empty[String], List.empty[String])) {
+          case ((allErrors, allSuccesses), (dirs, filenames)) =>
+            // Try to create directory
+            val dirResult = createDirectories(arguments.dryRun, outputDir, dirs)
+            val dirErrors = dirResult.fold(List(_), _ => List.empty)
+            
+            // Try to move all files in this directory
+            val (moveErrors, moveSuccesses) = collectAllResults(filenames) { filename =>
+              moveFile(arguments.dryRun, inputDir, outputDir, dirs, filename).map(_ => s"$filename -> $dirs$separator$filename")
+            }
+            
+            (allErrors ++ dirErrors ++ moveErrors, allSuccesses ++ moveSuccesses)
+        }
+        
+        val allErrors = filenameErrors ++ operationErrors
+        
+        if (allErrors.nonEmpty) {
+          output.stderrln("Problems found:")
+          allErrors.foreach(output.stderrln)
+          if (arguments.dryRun) {
+            output.stderrln("")
+            output.stderrln("The above problems would need to be resolved before running with --commit")
+          }
+        }
+        
+        if (successfulMoves.nonEmpty || allErrors.isEmpty) {
+          if (arguments.dryRun) {
+            output.stdoutln(
+              s"Would have processed ${successfulMoves.length} files, but this was a dry run"
+            )
+          } else {
+            output.stdoutln(s"Processed ${successfulMoves.length} files")
+          }
         }
       }
     )
@@ -213,6 +231,18 @@ object Main {
         b <- f(a)
         acc <- accE
       } yield b :: acc
+    }
+  }
+
+  // Collects all results and all errors instead of failing fast
+  def collectAllResults[A, B](
+      la: List[A]
+  )(f: A => Either[String, B]): (List[String], List[B]) = {
+    la.foldLeft((List.empty[String], List.empty[B])) { case ((errors, successes), a) =>
+      f(a) match {
+        case Left(error) => (error :: errors, successes)
+        case Right(success) => (errors, success :: successes)
+      }
     }
   }
 }

@@ -130,7 +130,7 @@ class IntegrationTest extends AnyFreeSpec with Matchers {
           program(List(inputDir.toString, outputDir.toString))
           
           val stderr = testOutput.getStderr.mkString("")
-          stderr should include("failed to copy files:")
+          stderr should include("Problems found:")
           stderr should include("Invalid filename invalid-name.jpg")
         }
       }
@@ -163,6 +163,108 @@ class IntegrationTest extends AnyFreeSpec with Matchers {
           
           val stdout = testOutput.getStdout.mkString("")
           stdout should include("Would have processed 0 files, but this was a dry run")
+        }
+      }
+      
+      "should list all problems at once in dry run mode" in {
+        val testOutput = new TestOutput()
+        given Output = testOutput
+        
+        withTempDirs { (inputDir, outputDir) =>
+          // Create multiple files with problems
+          createTestFile(inputDir, "invalid-file1.jpg")       // No date pattern
+          createTestFile(inputDir, "another-bad-file.mp4")    // No date pattern
+          createTestFile(inputDir, "PXL_20210424_123456789.jpg")  // Valid file
+          createTestFile(inputDir, ".pending-test.jpg")       // Should be filtered out by isValidFilename
+          
+          program(List(inputDir.toString, outputDir.toString))
+          
+          val stderr = testOutput.getStderr.mkString("")
+          val stdout = testOutput.getStdout.mkString("")
+          
+          // Should report all filename problems at once
+          stderr should include("Problems found:")
+          stderr should include("Invalid filename invalid-file1.jpg")
+          stderr should include("Invalid filename another-bad-file.mp4")
+          stderr should include("The above problems would need to be resolved before running with --commit")
+          
+          // Should still process the valid file
+          stdout should include("Would have processed 1 files, but this was a dry run")
+          
+          // Should not fail fast - both errors should be present
+          val errorLines = stderr.split("\n").filter(_.contains("Invalid filename"))
+          errorLines should have length 2
+        }
+      }
+      
+      "should list all file conflict problems at once in commit mode" in {
+        val testOutput = new TestOutput()
+        given Output = testOutput
+        
+        withTempDirs { (inputDir, outputDir) =>
+          // Create files that will have conflicts
+          val fileName1 = "PXL_20210424_123456789.jpg"
+          val fileName2 = "PXL_20210424_999999999.jpg"
+          val fileName3 = "IMG_20200920_121437.jpg"
+          
+          createTestFile(inputDir, fileName1, "original content 1")
+          createTestFile(inputDir, fileName2, "original content 2")
+          createTestFile(inputDir, fileName3, "original content 3")
+          
+          // Create target directories and files with different content to cause conflicts
+          val targetDir1 = outputDir.resolve("2021/04/24")
+          val targetDir2 = outputDir.resolve("2020/09/20")
+          Files.createDirectories(targetDir1)
+          Files.createDirectories(targetDir2)
+          createTestFile(targetDir1, fileName1, "different content 1")
+          createTestFile(targetDir1, fileName2, "different content 2")
+          createTestFile(targetDir2, fileName3, "different content 3")
+          
+          program(List(inputDir.toString, outputDir.toString, "--commit"))
+          
+          val stderr = testOutput.getStderr.mkString("")
+          
+          // Should report all conflicts at once
+          stderr should include("Problems found:")
+          stderr should include(s"File ${targetDir1}${File.separator}${fileName1} already exists and appears to have different contents")
+          stderr should include(s"File ${targetDir1}${File.separator}${fileName2} already exists and appears to have different contents")
+          stderr should include(s"File ${targetDir2}${File.separator}${fileName3} already exists and appears to have different contents")
+          
+          // Should not fail fast - all errors should be present
+          val conflictLines = stderr.split("\n").filter(_.contains("already exists and appears to have different contents"))
+          conflictLines should have length 3
+        }
+      }
+      
+      "should show both problems and successful operations together" in {
+        val testOutput = new TestOutput()
+        given Output = testOutput
+        
+        withTempDirs { (inputDir, outputDir) =>
+          // Mix of valid and invalid files
+          createTestFile(inputDir, "PXL_20210424_123456789.jpg")   // Valid
+          createTestFile(inputDir, "IMG_20200920_121437.jpg")      // Valid
+          createTestFile(inputDir, "invalid-file.jpg")             // Invalid - no date
+          createTestFile(inputDir, "VID_20200711_214648_LS.mp4")   // Valid
+          createTestFile(inputDir, "another-bad.mp4")              // Invalid - no date
+          
+          program(List(inputDir.toString, outputDir.toString))
+          
+          val stderr = testOutput.getStderr.mkString("")
+          val stdout = testOutput.getStdout.mkString("")
+          
+          // Should show problems
+          stderr should include("Problems found:")
+          stderr should include("Invalid filename invalid-file.jpg")
+          stderr should include("Invalid filename another-bad.mp4")
+          stderr should include("The above problems would need to be resolved before running with --commit")
+          
+          // Should also show successful operations count
+          stdout should include("Would have processed 3 files, but this was a dry run")
+          
+          // Both errors should be listed
+          val errorLines = stderr.split("\n").filter(_.contains("Invalid filename"))
+          errorLines should have length 2
         }
       }
     }
@@ -238,7 +340,7 @@ class IntegrationTest extends AnyFreeSpec with Matchers {
           program(List(inputDir.toString, outputDir.toString, "--commit"))
           
           val stderr = testOutput.getStderr.mkString("")
-          stderr should include("failed to copy files:")
+          stderr should include("Problems found:")
           stderr should include("already exists and appears to have different contents")
         }
       }
