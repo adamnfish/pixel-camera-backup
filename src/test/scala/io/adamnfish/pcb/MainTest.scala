@@ -1,6 +1,6 @@
 package io.adamnfish.pcb
 
-import io.adamnfish.pcb.Main.{getFilenameWithDirectory, groupByDate, isValidFilename, listFilesAt, processFilenames, reportResults, reportInitialError, collectAllResults}
+import io.adamnfish.pcb.Main.{getFilenameWithDirectory, groupByDate, isValidFilename, listFilesAt, reportResults, reportInitialError, collectAllResults}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -147,44 +147,7 @@ class MainTest extends AnyFreeSpec with Matchers {
     }
   }
 
-  "processFilenames" - {
-    "should process all valid filenames successfully" in {
-      val filenames = List(
-        "PXL_20210424_123456789.jpg",
-        "IMG_20200920_121437.jpg",
-        "VID_20200711_214648_LS.mp4"
-      )
-      
-      val (errors, successes) = processFilenames(filenames)
-      
-      errors shouldEqual List.empty
-      successes should have length 3
-      successes.map(_.filename) shouldEqual filenames
-    }
 
-    "should collect all filename errors" in {
-      val filenames = List(
-        "invalid-file.jpg",
-        "another-bad.mp4",
-        "PXL_20210424_123456789.jpg"  // valid one
-      )
-      
-      val (errors, successes) = processFilenames(filenames)
-      
-      errors should have length 2
-      errors should contain("Invalid filename invalid-file.jpg")
-      errors should contain("Invalid filename another-bad.mp4")
-      successes should have length 1
-      successes.head.filename shouldEqual "PXL_20210424_123456789.jpg"
-    }
-
-    "should handle empty filename list" in {
-      val (errors, successes) = processFilenames(List.empty)
-      
-      errors shouldEqual List.empty
-      successes shouldEqual List.empty
-    }
-  }
 
   "reportInitialError" - {
     "should output error message to stderr" in {

@@ -17,7 +17,7 @@ object Main {
       outputDir <- validateDirExists(arguments.outputDir)
       files <- listFilesAt(inputDir)
       names = files.map(_.getName).filter(isValidFilename)
-      (filenameErrors, validFilenames) = processFilenames(names)
+      (filenameErrors, validFilenames) = collectAllResults(names)(getFilenameWithDirectory)
       groupedFilenames = groupByDate(validFilenames)
       (operationErrors, successfulMoves) = processFileOperations(arguments, inputDir, outputDir, groupedFilenames)
       allErrors = filenameErrors ++ operationErrors
@@ -205,16 +205,14 @@ object Main {
   )(f: A => Either[String, B]): (List[String], List[B]) = {
     val (errors, successes) = la.foldLeft((List.empty[String], List.empty[B])) { case ((errors, successes), a) =>
       f(a) match {
-        case Left(error) => (errors :+ error, successes)
-        case Right(success) => (errors, successes :+ success)
+        case Left(error) => (error :: errors, successes)
+        case Right(success) => (errors, success :: successes)
       }
     }
-    (errors, successes)
+    (errors.reverse, successes.reverse)
   }
 
-  def processFilenames(names: List[String]): (List[String], List[Filenames]) = {
-    collectAllResults(names)(getFilenameWithDirectory)
-  }
+
 
   def processFileOperations(
       arguments: Arguments,
