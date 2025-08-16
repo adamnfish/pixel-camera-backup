@@ -17,35 +17,18 @@ object Main {
       outputDir <- validateDirExists(arguments.outputDir)
       files <- listFilesAt(inputDir)
       names = files.map(_.getName).filter(isValidFilename)
-      filenames <- elTraverse(names)(getFilenameWithDirectory)
-      groupedFilenames = groupByDate(filenames)
-      // TODO: unnest this? Or better to fail fast on first copy?
-      _ <- elTraverse(groupedFilenames) { case (dirs, filenames) =>
-        for {
-          _ <- createDirectories(arguments.dryRun, outputDir, dirs)
-          _ <- elTraverse(filenames)(filename =>
-            moveFile(arguments.dryRun, inputDir, outputDir, dirs, filename)
-          )
-        } yield ()
-      }
-    } yield (
-      arguments.dryRun,
-      filenames.map(fn => s"${fn.filename} -> ${fn.dirs}")
-    )
+      (filenameErrors, validFilenames) = collectAllResults(names)(getFilenameWithDirectory)
+      groupedFilenames = groupByDate(validFilenames)
+      (operationErrors, successfulMoves) = processFileOperations(arguments, inputDir, outputDir, groupedFilenames)
+      allErrors = filenameErrors ++ operationErrors
+    } yield (arguments, allErrors, successfulMoves)
+    
     result.fold(
       { err =>
-        output.stderrln("failed to copy files:")
-        output.stderrln(err)
+        reportInitialError(err)
       },
-      { case (dryRun, moves) =>
-        //        output.stdoutln(moves.mkString("\n"))
-        if (dryRun) {
-          output.stdoutln(
-            s"Would have processed ${moves.length} files, but this was a dry run"
-          )
-        } else {
-          output.stdoutln(s"Processed ${moves.length} files")
-        }
+      { case (arguments, allErrors, successfulMoves) =>
+        reportResults(arguments, allErrors, successfulMoves)
       }
     )
   }
@@ -213,6 +196,72 @@ object Main {
         b <- f(a)
         acc <- accE
       } yield b :: acc
+    }
+  }
+
+  // Collects all results and all errors instead of failing fast
+  def collectAllResults[A, B](
+      la: List[A]
+  )(f: A => Either[String, B]): (List[String], List[B]) = {
+    val (errors, successes) = la.foldLeft((List.empty[String], List.empty[B])) { case ((errors, successes), a) =>
+      f(a) match {
+        case Left(error) => (error :: errors, successes)
+        case Right(success) => (errors, success :: successes)
+      }
+    }
+    (errors.reverse, successes.reverse)
+  }
+
+
+
+  def processFileOperations(
+      arguments: Arguments,
+      inputDir: String, 
+      outputDir: String,
+      groupedFilenames: List[(String, List[String])]
+  )(using output: Output): (List[String], List[String]) = {
+    groupedFilenames.foldLeft((List.empty[String], List.empty[String])) {
+      case ((allErrors, allSuccesses), (dirs, filenames)) =>
+        // Try to create directory
+        val dirResult = createDirectories(arguments.dryRun, outputDir, dirs)
+        val dirErrors = dirResult.fold(List(_), _ => List.empty)
+        
+        // Try to move all files in this directory
+        val (moveErrors, moveSuccesses) = collectAllResults(filenames) { filename =>
+          moveFile(arguments.dryRun, inputDir, outputDir, dirs, filename).map(_ => s"$filename -> $dirs$separator$filename")
+        }
+        
+        (allErrors ++ dirErrors ++ moveErrors, allSuccesses ++ moveSuccesses)
+    }
+  }
+
+  def reportInitialError(err: String)(using output: Output): Unit = {
+    output.stderrln("failed to copy files:")
+    output.stderrln(err)
+  }
+
+  def reportResults(
+      arguments: Arguments,
+      allErrors: List[String],
+      successfulMoves: List[String]
+  )(using output: Output): Unit = {
+    if (allErrors.nonEmpty) {
+      output.stderrln("Problems found:")
+      allErrors.foreach(output.stderrln)
+      if (arguments.dryRun) {
+        output.stderrln("")
+        output.stderrln("The above problems would need to be resolved before running with --commit")
+      }
+    }
+    
+    if (successfulMoves.nonEmpty || allErrors.isEmpty) {
+      if (arguments.dryRun) {
+        output.stdoutln(
+          s"Would have processed ${successfulMoves.length} files, but this was a dry run"
+        )
+      } else {
+        output.stdoutln(s"Processed ${successfulMoves.length} files")
+      }
     }
   }
 }
