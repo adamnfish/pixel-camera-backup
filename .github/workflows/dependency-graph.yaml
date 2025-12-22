@@ -15,4 +15,4 @@ jobs:
 
       # Uploads information to the GitHub dependency graph to allow Dependabot alerts for the repository
       - name: Upload dependency graph
-        uses: scalacenter/sbt-dependency-submission@768f9b6dc79b0f5f2d103a706681fa6e206b86bc # 3.2.0
+        uses: scalacenter/sbt-dependency-submission@f43202114d7522a4b233e052f82c2eea8d658134 # 3.2.1
