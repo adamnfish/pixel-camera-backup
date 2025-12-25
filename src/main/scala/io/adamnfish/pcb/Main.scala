@@ -16,19 +16,35 @@ object Main {
       inputDir <- validateDirExists(arguments.inputDir)
       outputDir <- validateDirExists(arguments.outputDir)
       files <- listFilesAt(inputDir)
-      names = files.map(_.getName).filter(isValidFilename)
-      (filenameErrors, validFilenames) = collectAllResults(names)(getFilenameWithDirectory)
-      groupedFilenames = groupByDate(validFilenames)
-      (operationErrors, successfulMoves) = processFileOperations(arguments, inputDir, outputDir, groupedFilenames)
-      allErrors = filenameErrors ++ operationErrors
-    } yield (arguments, allErrors, successfulMoves)
-    
+      names = files.map(_.getName)
+      filenames <- elTraverse(names)(getFilenameWithDirectory)
+      groupedFilenames = groupByDate(filenames)
+      // TODO: unnest this? Or better to fail fast on first copy?
+      _ <- elTraverse(groupedFilenames) { case (dirs, filenames) =>
+        for {
+          _ <- createDirectories(arguments.dryRun, outputDir, dirs)
+          _ <- elTraverse(filenames)(filename =>
+            moveFile(arguments.dryRun, inputDir, outputDir, dirs, filename)
+          )
+        } yield ()
+      }
+    } yield (
+      arguments.dryRun,
+      filenames.map(fn => s"${fn.filename} -> ${fn.dirs}")
+    )
     result.fold(
       { err =>
         reportInitialError(err)
       },
-      { case (arguments, allErrors, successfulMoves) =>
-        reportResults(arguments, allErrors, successfulMoves)
+      { case (dryRun, moves) =>
+//        println(moves.mkString("\n"))
+        if (dryRun) {
+          println(
+            s"Would have processed ${moves.length} files, but this was a dry run"
+          )
+        } else {
+          println(s"Processed ${moves.length} files")
+        }
       }
     )
   }
