@@ -16,7 +16,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    - name: Setup JDK and Scala
+    - name: Set up Java and sbt
       uses: guardian/setup-scala@v1
 
     - name: Run tests
