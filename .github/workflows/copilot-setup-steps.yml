@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup JDK and Scala
-        uses: guardian/setup-scala@v1
+        uses: guardian/setup-scala@v2
 
       # Primes all caches so sbt starts quickly for the agent
       - name: Run compile task in test scope
